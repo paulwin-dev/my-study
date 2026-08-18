@@ -197,6 +197,18 @@
     </form>
   </dialog>
 
+  <div id="transcribe-overlay" class="transcribe-overlay" hidden aria-hidden="true">
+    <div class="transcribe-card">
+      <div class="scanner-box">
+        <div class="scan-line"></div>
+        <div class="page-icon">📄</div>
+      </div>
+      <div class="transcribe-spinner"></div>
+      <h3 class="chalk-hand transcribe-title">Transcribing Notes</h3>
+      <p class="transcribe-status" id="transcribe-status-text">Analyzing handwriting with Gemini AI...</p>
+    </div>
+  </div>
+
   <script src="js/db.js"></script>
   <script src="js/gemini.js"></script>
   <script src="js/markdown.js"></script>

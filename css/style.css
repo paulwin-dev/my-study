@@ -675,6 +675,94 @@ dialog form {
   display: none;
 }
 
+/* Transcribing Fullscreen Overlay */
+.transcribe-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(18, 26, 22, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
+.transcribe-overlay[hidden] {
+  display: none;
+}
+
+.transcribe-card {
+  background: #25362c;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 32px 28px;
+  width: 85%;
+  max-width: 320px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Scanner Animation */
+.scanner-box {
+  position: relative;
+  width: 72px;
+  height: 88px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(227, 178, 60, 0.4);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.page-icon {
+  font-size: 36px;
+  opacity: 0.8;
+}
+
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #E3B23C, transparent);
+  box-shadow: 0 0 12px #E3B23C, 0 0 6px #E3B23C;
+  animation: scan 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes scan {
+  0% { top: 2%; }
+  100% { top: 94%; }
+}
+
+.transcribe-title {
+  color: #E3B23C;
+  font-size: 24px;
+  margin: 12px 0 6px;
+}
+
+.transcribe-status {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  margin: 0;
+  min-height: 36px;
+}
+
 /* ---------------- Focus & Utilities ---------------- */
 .rule { border: none; border-top: 1px solid rgba(255,255,255,0.15); margin: 6px 0; }
 

@@ -2,6 +2,11 @@
 
 const SWATCHES = ["#E3B23C", "#C97A6D", "#6FA98C", "#7FA8C9", "#B58FD1", "#D9915A"];
 
+const transcribeOverlay = document.getElementById("transcribe-overlay");
+const transcribeStatusText = document.getElementById("transcribe-status-text");
+
+let statusInterval;
+
 const state = {
   classes: [],
   currentClass: null,
@@ -45,6 +50,32 @@ const backTargets = {
   ask: "class",
   settings: "classes",
 };
+
+function showTranscribeOverlay() {
+  const messages = [
+    "Analyzing handwriting with Gemini AI...",
+    "Cleaning up scanned layout...",
+    "Extracting mathematical notation & key points...",
+    "Formatting transcription..."
+  ];
+  let idx = 0;
+  transcribeStatusText.textContent = messages[0];
+  
+  // Cycle status message every 2.5 seconds
+  statusInterval = setInterval(() => {
+    idx = (idx + 1) % messages.length;
+    transcribeStatusText.textContent = messages[idx];
+  }, 2500);
+
+  transcribeOverlay.hidden = false;
+  transcribeOverlay.setAttribute("aria-hidden", "false");
+}
+
+function hideTranscribeOverlay() {
+  clearInterval(statusInterval);
+  transcribeOverlay.hidden = true;
+  transcribeOverlay.setAttribute("aria-hidden", "true");
+}
 
 function showView(name) {
   Object.values(views).forEach((v) => (v.hidden = true));
@@ -259,8 +290,9 @@ function resetCaptureView() {
   state.captureCombinedBlob = null;
   captureInput.value = "";
   capturePreview.hidden = true;
+  capturePreview.src = "";
   captureLabel.hidden = false;
-  captureLabel.innerHTML = "&#128248; Tap to photograph page(s)<br/><span class=\"muted small\">Select 1 or more photos (front/back)</span>";
+  captureLabel.innerHTML = '&#128248; Tap to photograph page<br/><span class="muted small">Take photos one by one or select multiple</span>';
   captureDate.value = new Date().toISOString().slice(0, 10);
   captureStatus.hidden = true;
   captureTextField.hidden = true;
@@ -271,27 +303,38 @@ function resetCaptureView() {
 }
 
 captureInput.addEventListener("change", async () => {
-  const files = Array.from(captureInput.files || []);
-  if (!files.length) return;
+  const newFiles = Array.from(captureInput.files || []);
+  if (!newFiles.length) return;
 
-  setStatus(captureStatus, `Compressing ${files.length} image${files.length > 1 ? "s" : ""}...`, "");
+  setStatus(captureStatus, `Processing photo(s)...`, "");
 
   try {
-    // Compress each uploaded image
-    state.captureBlobs = await Promise.all(
-      files.map((file) => compressImage(file, 1500, 0.72))
+    // Compress newly selected/captured images
+    const newBlobs = await Promise.all(
+      newFiles.map((file) => compressImage(file, 1500, 0.72))
     );
 
-    // Stitches all images vertically into a single image blob for AI & storage
+    // Append new images to existing capture array
+    state.captureBlobs = [...(state.captureBlobs || []), ...newBlobs];
+
+    // Combine all accumulated images vertically
     state.captureCombinedBlob = await combineImages(state.captureBlobs);
 
+    // Update preview & UI text
     capturePreview.src = URL.createObjectURL(state.captureCombinedBlob);
     capturePreview.hidden = false;
-    captureLabel.hidden = true;
+    
+    // Update label to indicate photo count and allow adding more
+    captureLabel.hidden = false;
+    captureLabel.innerHTML = `&#128248; <strong>${state.captureBlobs.length} page(s) captured</strong><br/><span class="muted small">Tap here to add another page</span>`;
+    
     captureStatus.hidden = true;
     btnRunOcr.disabled = false;
   } catch (err) {
     setStatus(captureStatus, "Failed to process images: " + err.message, "error");
+  } finally {
+    // Reset file input value so re-triggering opens the camera again clean
+    captureInput.value = "";
   }
 });
 
@@ -380,9 +423,13 @@ function setStatus(el, msg, kind) {
 
 btnRunOcr.addEventListener("click", async () => {
   if (!state.captureCombinedBlob) return;
+
   btnRunOcr.disabled = true;
   btnRunOcr.textContent = "Transcribing...";
-  setStatus(captureStatus, "Sending notes to Gemini for transcription...", "");
+  setStatus(captureStatus, "Sending notes to Gemini...", "");
+  
+  showTranscribeOverlay();
+
   try {
     const text = await Gemini.ocrImage(state.captureCombinedBlob);
     captureText.value = text;
@@ -392,6 +439,7 @@ btnRunOcr.addEventListener("click", async () => {
   } catch (err) {
     setStatus(captureStatus, err.message, "error");
   } finally {
+    hideTranscribeOverlay();
     btnRunOcr.disabled = false;
     btnRunOcr.textContent = "Re-transcribe";
   }

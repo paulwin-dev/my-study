@@ -13,7 +13,7 @@ const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models
 function getSettings() {
   return {
     apiKey: localStorage.getItem("ss_api_key") || "",
-    model: localStorage.getItem("ss_model") || "gemini-2.5-flash",
+    model: localStorage.getItem("ss_model") || "gemini-3.6-flash",
   };
 }
 
