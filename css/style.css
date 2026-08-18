@@ -524,7 +524,6 @@ button, input, textarea, select {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  border-top: 1px solid rgba(255,255,255,0.12);
   padding-top: 8px;
   background: var(--board);
 }
@@ -670,6 +669,10 @@ dialog form {
   position: fixed;
   bottom: 15px;
   right: 15px;
+}
+
+#btn-back[hidden] {
+  display: none;
 }
 
 /* ---------------- Focus & Utilities ---------------- */
