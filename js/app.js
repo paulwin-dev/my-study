@@ -5,34 +5,40 @@ const SWATCHES = ["#E3B23C", "#C97A6D", "#6FA98C", "#7FA8C9", "#B58FD1", "#D9915
 const state = {
   classes: [],
   currentClass: null,
+  currentNote: null, // Track selected note
   currentNotes: [],
-  captureBlob: null,
-  captureDataUrl: null,
+  captureBlobs: [],
+  captureCombinedBlob: null,
   view: "classes",
-  askMessages: [], // { role: "user" | "model", text } — running Q&A history for the open class
-};
+  askMessages: [],
+}
 
 // ---------------- View routing ----------------
 const views = {
   classes: document.getElementById("view-classes"),
   class: document.getElementById("view-class"),
+  "note-detail": document.getElementById("view-note-detail"),
   capture: document.getElementById("view-capture"),
   "guide-setup": document.getElementById("view-guide-setup"),
   "guide-result": document.getElementById("view-guide-result"),
   ask: document.getElementById("view-ask"),
   settings: document.getElementById("view-settings"),
 };
+
 const titles = {
   classes: "Study Scanner",
   class: () => state.currentClass?.name || "Class",
-  capture: "Scan a note",
+  "note-detail": () => state.currentNote?.date || "Note Details",
+  capture: "Scan notes",
   "guide-setup": "Study guide",
   "guide-result": () => state.guideTitle || "Study guide",
   ask: () => (state.currentClass ? `Ask · ${state.currentClass.name}` : "Ask"),
   settings: "Settings",
 };
+
 const backTargets = {
   class: "classes",
+  "note-detail": "class",
   capture: "class",
   "guide-setup": "class",
   "guide-result": "guide-setup",
@@ -46,7 +52,13 @@ function showView(name) {
   state.view = name;
   const t = titles[name];
   document.getElementById("topbar-title").textContent = typeof t === "function" ? t() : t;
-  document.getElementById("btn-back").hidden = !backTargets[name];
+  
+  // Hide back button on the main 'classes' view; show it on sub-views
+  const btnBack = document.getElementById("btn-back");
+  if (btnBack) {
+    btnBack.hidden = name === "classes" || !backTargets[name];
+  }
+
   window.scrollTo(0, 0);
 }
 
@@ -54,6 +66,7 @@ document.getElementById("btn-back").addEventListener("click", () => {
   const target = backTargets[state.view];
   if (target) navigateTo(target);
 });
+
 document.getElementById("btn-settings").addEventListener("click", () => {
   document.getElementById("settings-key").value = localStorage.getItem("ss_api_key") || "";
   document.getElementById("settings-model").value = localStorage.getItem("ss_model") || "gemini-2.5-flash";
@@ -138,6 +151,7 @@ document.getElementById("form-new-class").addEventListener("submit", async (e) =
 });
 
 // ---------------- Notes list ----------------
+// Update renderNoteList inside js/app.js
 async function renderNoteList() {
   const notes = await DB.listNotes(state.currentClass.id);
   state.currentNotes = notes;
@@ -150,6 +164,8 @@ async function renderNoteList() {
   [...notes].reverse().forEach((note) => {
     const row = document.createElement("div");
     row.className = "note-row";
+    row.style.cursor = "pointer"; // Indicate clickability
+
     const img = document.createElement("img");
     img.className = "note-thumb";
     img.src = URL.createObjectURL(note.imageBlob);
@@ -168,15 +184,48 @@ async function renderNoteList() {
     del.setAttribute("aria-label", "Delete note");
     del.textContent = "✕";
     del.addEventListener("click", async (ev) => {
-      ev.stopPropagation();
+      ev.stopPropagation(); // Prevent opening the note on delete
       if (confirm("Delete this scanned note?")) {
         await DB.deleteNote(note.id);
         renderNoteList();
       }
     });
     row.appendChild(del);
+
+    // Open note detail when tapping anywhere on the note row
+    row.addEventListener("click", () => openNoteDetail(note));
+
     list.appendChild(row);
   });
+}
+
+// Render Note Detail Page
+function openNoteDetail(note) {
+  state.currentNote = note;
+
+  document.getElementById("note-detail-date").textContent = `Scanned on ${note.date}`;
+
+  // Render Gallery Image
+  const gallery = document.getElementById("note-detail-gallery");
+  gallery.innerHTML = "";
+
+  // If captureBlobs array exists on note, render each; otherwise render the single imageBlob
+  const imageSources = note.captureBlobs && note.captureBlobs.length > 0
+    ? note.captureBlobs
+    : [note.imageBlob];
+
+  imageSources.forEach((blob) => {
+    const img = document.createElement("img");
+    img.className = "gallery-image";
+    img.src = URL.createObjectURL(blob);
+    gallery.appendChild(img);
+  });
+
+  // Render Transcript (using markdown renderer)
+  const transcriptEl = document.getElementById("note-detail-transcript");
+  transcriptEl.innerHTML = renderMarkdown(note.ocrText || "*No transcript available.*");
+
+  navigateTo("note-detail");
 }
 
 document.getElementById("btn-scan-note").addEventListener("click", () => {
@@ -190,7 +239,7 @@ document.getElementById("btn-ask").addEventListener("click", () => {
   openAsk();
 });
 
-// ---------------- Capture flow ----------------
+// ---------------- Multi-Image Capture Flow ----------------
 const captureInput = document.getElementById("capture-input");
 const captureDrop = document.getElementById("capture-drop");
 const captureLabel = document.getElementById("capture-drop-label");
@@ -202,11 +251,16 @@ const captureText = document.getElementById("capture-text");
 const btnRunOcr = document.getElementById("btn-run-ocr");
 const btnSaveNote = document.getElementById("btn-save-note");
 
+// Ensure input supports multiple files
+captureInput.setAttribute("multiple", "true");
+
 function resetCaptureView() {
-  state.captureBlob = null;
+  state.captureBlobs = [];
+  state.captureCombinedBlob = null;
   captureInput.value = "";
   capturePreview.hidden = true;
   captureLabel.hidden = false;
+  captureLabel.innerHTML = "&#128248; Tap to photograph page(s)<br/><span class=\"muted small\">Select 1 or more photos (front/back)</span>";
   captureDate.value = new Date().toISOString().slice(0, 10);
   captureStatus.hidden = true;
   captureTextField.hidden = true;
@@ -217,16 +271,28 @@ function resetCaptureView() {
 }
 
 captureInput.addEventListener("change", async () => {
-  const file = captureInput.files[0];
-  if (!file) return;
-  setStatus(captureStatus, "Compressing image...", "");
-  const compressed = await compressImage(file, 1500, 0.72);
-  state.captureBlob = compressed;
-  capturePreview.src = URL.createObjectURL(compressed);
-  capturePreview.hidden = false;
-  captureLabel.hidden = true;
-  captureStatus.hidden = true;
-  btnRunOcr.disabled = false;
+  const files = Array.from(captureInput.files || []);
+  if (!files.length) return;
+
+  setStatus(captureStatus, `Compressing ${files.length} image${files.length > 1 ? "s" : ""}...`, "");
+
+  try {
+    // Compress each uploaded image
+    state.captureBlobs = await Promise.all(
+      files.map((file) => compressImage(file, 1500, 0.72))
+    );
+
+    // Stitches all images vertically into a single image blob for AI & storage
+    state.captureCombinedBlob = await combineImages(state.captureBlobs);
+
+    capturePreview.src = URL.createObjectURL(state.captureCombinedBlob);
+    capturePreview.hidden = false;
+    captureLabel.hidden = true;
+    captureStatus.hidden = true;
+    btnRunOcr.disabled = false;
+  } catch (err) {
+    setStatus(captureStatus, "Failed to process images: " + err.message, "error");
+  }
 });
 
 function compressImage(file, maxDim, quality) {
@@ -260,6 +326,52 @@ function compressImage(file, maxDim, quality) {
   });
 }
 
+// Stitches multiple blobs into a single vertical image canvas
+function combineImages(blobs) {
+  if (blobs.length === 1) return Promise.resolve(blobs[0]);
+
+  return new Promise((resolve, reject) => {
+    const loadedImages = [];
+    let loadedCount = 0;
+
+    blobs.forEach((blob, index) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        loadedImages[index] = img;
+        loadedCount++;
+        URL.revokeObjectURL(url);
+        if (loadedCount === blobs.length) {
+          renderCombinedCanvas();
+        }
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+
+    function renderCombinedCanvas() {
+      // Find maximum width among all pages
+      const maxWidth = Math.max(...loadedImages.map((i) => i.width));
+      // Calculate total height needed for stacked pages
+      const totalHeight = loadedImages.reduce((sum, i) => sum + Math.round((i.height * maxWidth) / i.width), 0);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = maxWidth;
+      canvas.height = totalHeight;
+      const ctx = canvas.getContext("2d");
+
+      let currentY = 0;
+      loadedImages.forEach((img) => {
+        const scaledHeight = Math.round((img.height * maxWidth) / img.width);
+        ctx.drawImage(img, 0, currentY, maxWidth, scaledHeight);
+        currentY += scaledHeight;
+      });
+
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.85);
+    }
+  });
+}
+
 function setStatus(el, msg, kind) {
   el.hidden = false;
   el.textContent = msg;
@@ -267,12 +379,12 @@ function setStatus(el, msg, kind) {
 }
 
 btnRunOcr.addEventListener("click", async () => {
-  if (!state.captureBlob) return;
+  if (!state.captureCombinedBlob) return;
   btnRunOcr.disabled = true;
   btnRunOcr.textContent = "Transcribing...";
-  setStatus(captureStatus, "Sending to Gemini for transcription...", "");
+  setStatus(captureStatus, "Sending notes to Gemini for transcription...", "");
   try {
-    const text = await Gemini.ocrImage(state.captureBlob);
+    const text = await Gemini.ocrImage(state.captureCombinedBlob);
     captureText.value = text;
     captureTextField.hidden = false;
     btnSaveNote.hidden = false;
@@ -286,11 +398,11 @@ btnRunOcr.addEventListener("click", async () => {
 });
 
 btnSaveNote.addEventListener("click", async () => {
-  if (!state.captureBlob || !state.currentClass) return;
+  if (!state.captureCombinedBlob || !state.currentClass) return;
   await DB.addNote({
     classId: state.currentClass.id,
     date: captureDate.value || new Date().toISOString().slice(0, 10),
-    imageBlob: state.captureBlob,
+    imageBlob: state.captureCombinedBlob,
     ocrText: captureText.value,
   });
   navigateTo("class");
@@ -390,6 +502,17 @@ const askForm = document.getElementById("ask-form");
 const askInput = document.getElementById("ask-input");
 const btnAskSend = document.getElementById("btn-ask-send");
 
+askInput.addEventListener('input', () => {
+  askInput.style.height = 'auto';
+  askInput.style.height = Math.min(askInput.scrollHeight, 120) + 'px';
+});
+
+askInput.addEventListener('focus', () => {
+  setTimeout(() => {
+    askInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 300);
+});
+
 async function openAsk() {
   const notes = await DB.listNotes(state.currentClass.id);
   state.currentNotes = notes;
@@ -397,8 +520,6 @@ async function openAsk() {
     alert("Scan at least one note in this class first.");
     return;
   }
-  // Starting a fresh conversation each time Ask is opened from the class
-  // view keeps follow-ups scoped to one sitting rather than growing forever.
   state.askMessages = [];
   askInput.value = "";
   renderAskMessages();
@@ -426,9 +547,9 @@ function autosizeAskInput() {
   askInput.style.height = "auto";
   askInput.style.height = Math.min(askInput.scrollHeight, 160) + "px";
 }
+
 askInput.addEventListener("input", autosizeAskInput);
 askInput.addEventListener("keydown", (e) => {
-  // Enter sends, Shift+Enter makes a new line — standard chat-input behavior.
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     askForm.requestSubmit();
@@ -459,8 +580,6 @@ askForm.addEventListener("submit", async (e) => {
     askStatusEl.hidden = true;
     renderAskMessages();
   } catch (err) {
-    // Drop the unanswered question back into the input so it isn't lost,
-    // and keep it out of the message history sent to Gemini next time.
     state.askMessages.pop();
     askInput.value = question;
     autosizeAskInput();
@@ -506,8 +625,6 @@ renderClassList();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {
-      /* offline shell just won't be available — app still works online */
-    });
+    navigator.serviceWorker.register("service-worker.js").catch(() => { });
   });
 }
