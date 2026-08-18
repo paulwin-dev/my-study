@@ -3,7 +3,7 @@
 // AI features (scanning/OCR, study guide generation) still need a live network
 // connection, since they call the Gemini API directly from your device.
 
-const CACHE_NAME = "study-scanner-shell-v1";
+const CACHE_NAME = "study-scanner-shell-v2";
 const SHELL_FILES = [
   "./",
   "./index.html",

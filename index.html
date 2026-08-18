@@ -41,7 +41,8 @@
   <main class="view" id="view-class" hidden>
     <div class="class-toolbar">
       <button class="pill-btn accent" id="btn-scan-note">&#128247; Scan a note</button>
-      <button class="pill-btn" id="btn-make-guide">&#10024; Study guide</button>
+      <button class="pill-btn" id="btn-make-guide">📕 Study guide</button>
+      <button class="pill-btn" id="btn-ask">✦ Ask</button>
     </div>
     <div class="empty-state" id="notes-empty" hidden>
       <p class="chalk-hand">No notes filed yet</p>
@@ -105,6 +106,27 @@
       <button class="pill-btn" id="btn-copy-guide">Copy text</button>
     </div>
     <article class="guide-content" id="guide-content"></article>
+  </main>
+
+  <!-- ============ ASK (with follow-ups) ============ -->
+  <main class="view" id="view-ask" hidden>
+    <div class="ask-wrap">
+      <div class="empty-state" id="ask-empty">
+        <p class="chalk-hand">Ask about this class</p>
+        <p class="muted">Answers are grounded in your scanned notes. Ask a follow-up any time.</p>
+      </div>
+      <div class="ask-messages" id="ask-messages"></div>
+      <div id="ask-status" class="status-line" hidden></div>
+      <form class="ask-input-row" id="ask-form">
+        <textarea
+          id="ask-input"
+          rows="1"
+          placeholder="Ask a question about this class..."
+          required
+        ></textarea>
+        <button type="submit" class="pill-btn accent" id="btn-ask-send">Send</button>
+      </form>
+    </div>
   </main>
 
   <!-- ============ SETTINGS ============ -->

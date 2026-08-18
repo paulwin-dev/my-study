@@ -16,6 +16,8 @@
      mono:    'JetBrains Mono' (dates/meta)
    ============================================================ */
 
+   
+
 :root {
   --board: #1E2B24;
   --board-line: #2A3B32;
@@ -404,6 +406,110 @@ dialog form { display: flex; flex-direction: column; gap: 14px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 
 .rule { border: none; border-top: 1px solid rgba(255,255,255,0.15); margin: 6px 0; }
+
+#btn-cancel-class {
+  color: black;
+}
+
+/* ============ ASK VIEW ============
+   Append this block to your existing css/style.css. It reuses the
+   look of .capture-panel / .pill-btn / .status-line where possible;
+   only the classes below (.ask-*) are new. Swap in your real color
+   variables if the fallbacks here don't match your palette. */
+
+#view-ask {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+#view-ask[hidden] {
+  display: none;
+}
+
+.ask-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 12px 16px;
+  gap: 10px;
+}
+
+.ask-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px 8px;
+}
+
+.ask-msg {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  line-height: 1.45;
+  font-size: 0.95rem;
+  word-wrap: break-word;
+}
+
+.ask-msg-user {
+  align-self: flex-end;
+  background: var(--accent, #6FA98C);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  white-space: pre-wrap;
+}
+
+.ask-msg-model {
+  align-self: flex-start;
+  background: var(--surface-2, #EFE8DA);
+  color: var(--ink, #26332C);
+  border-bottom-left-radius: 4px;
+}
+
+.ask-msg-model p:first-child {
+  margin-top: 0;
+}
+.ask-msg-model p:last-child {
+  margin-bottom: 0;
+}
+
+.ask-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  padding-top: 10px;
+}
+
+.ask-input-row textarea#ask-input {
+  flex: 1;
+  resize: none;
+  max-height: 160px;
+  min-height: 40px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.15));
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: black;
+}
+
+.ask-input-row textarea#ask-input:disabled {
+  opacity: 0.6;
+}
+
+.ask-input-row .pill-btn {
+  flex-shrink: 0;
+}
+
+#ask-empty {
+  margin-top: 24px;
+}
 
 /* ---------------- Scrollbars, misc ---------------- */
 ::selection { background: var(--accent); color: var(--accent-ink); }

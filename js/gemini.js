@@ -17,7 +17,10 @@ function getSettings() {
   };
 }
 
-async function callGemini(parts, { temperature = 0.4 } = {}) {
+// Low-level call that takes a full Gemini `contents` array, so callers can
+// send multi-turn conversations (used by Ask / follow-up questions) as well
+// as simple one-shot prompts.
+async function callGeminiContents(contents, { temperature = 0.4 } = {}) {
   const { apiKey, model } = getSettings();
   if (!apiKey) {
     throw new Error("No Gemini API key set. Add one in Settings first.");
@@ -31,7 +34,7 @@ async function callGemini(parts, { temperature = 0.4 } = {}) {
       "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
-      contents: [{ role: "user", parts }],
+      contents,
       generationConfig: { temperature },
     }),
   });
@@ -64,6 +67,11 @@ async function callGemini(parts, { temperature = 0.4 } = {}) {
     throw new Error(blockReason ? `Response blocked: ${blockReason}` : "Empty response from Gemini.");
   }
   return text.trim();
+}
+
+// Convenience wrapper for simple one-shot (single user turn) prompts.
+async function callGemini(parts, opts = {}) {
+  return callGeminiContents([{ role: "user", parts }], opts);
 }
 
 async function blobToBase64(blob) {
@@ -117,5 +125,36 @@ const Gemini = {
       `--- NOTES ---\n${body}`;
 
     return callGemini([{ text: prompt }], { temperature: 0.5 });
+  },
+
+  // Answers a question about a class's notes, with support for follow-up
+  // questions. `messages` is the full running conversation so far, as an
+  // array of { role: "user" | "model", text }, ending with the newest user
+  // question. Only the FIRST user turn gets the notes/context injected —
+  // the model already has that context in its own conversation history for
+  // every turn after that, and Gemini's `contents` array is how multi-turn
+  // / follow-up conversations are represented.
+  async askQuestion({ className, notes, messages }) {
+    const body = notes
+      .map((n) => `### ${n.date}\n${n.ocrText || "(no legible text)"}`)
+      .join("\n\n");
+
+    const contents = messages.map((m, i) => {
+      if (i === 0) {
+        const prompt =
+          `You are helping a student by answering questions they have about topics ` +
+          `related to their class "${className}". Base your answer as much as possible ` +
+          `on the provided notes below. If no info is available from the notes, use your ` +
+          `own knowledge, but say so. Format each response in Markdown with headings and ` +
+          `bullet points where that helps. Keep answers focused and not overly long unless ` +
+          `the question calls for depth.\n\n` +
+          `--- NOTES ---\n${body}\n\n` +
+          `Question: ${m.text}`;
+        return { role: "user", parts: [{ text: prompt }] };
+      }
+      return { role: m.role, parts: [{ text: m.text }] };
+    });
+
+    return callGeminiContents(contents, { temperature: 0.5 });
   },
 };

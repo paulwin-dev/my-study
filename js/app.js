@@ -9,6 +9,7 @@ const state = {
   captureBlob: null,
   captureDataUrl: null,
   view: "classes",
+  askMessages: [], // { role: "user" | "model", text } — running Q&A history for the open class
 };
 
 // ---------------- View routing ----------------
@@ -18,6 +19,7 @@ const views = {
   capture: document.getElementById("view-capture"),
   "guide-setup": document.getElementById("view-guide-setup"),
   "guide-result": document.getElementById("view-guide-result"),
+  ask: document.getElementById("view-ask"),
   settings: document.getElementById("view-settings"),
 };
 const titles = {
@@ -26,6 +28,7 @@ const titles = {
   capture: "Scan a note",
   "guide-setup": "Study guide",
   "guide-result": () => state.guideTitle || "Study guide",
+  ask: () => (state.currentClass ? `Ask · ${state.currentClass.name}` : "Ask"),
   settings: "Settings",
 };
 const backTargets = {
@@ -33,6 +36,7 @@ const backTargets = {
   capture: "class",
   "guide-setup": "class",
   "guide-result": "guide-setup",
+  ask: "class",
   settings: "classes",
 };
 
@@ -181,6 +185,9 @@ document.getElementById("btn-scan-note").addEventListener("click", () => {
 });
 document.getElementById("btn-make-guide").addEventListener("click", () => {
   openGuideSetup();
+});
+document.getElementById("btn-ask").addEventListener("click", () => {
+  openAsk();
 });
 
 // ---------------- Capture flow ----------------
@@ -372,6 +379,97 @@ document.getElementById("btn-copy-guide").addEventListener("click", async () => 
     setTimeout(() => (b.textContent = old), 1200);
   } catch (_) {
     alert("Couldn't copy — select and copy the text manually.");
+  }
+});
+
+// ---------------- Ask (with follow-ups) ----------------
+const askMessagesEl = document.getElementById("ask-messages");
+const askEmptyEl = document.getElementById("ask-empty");
+const askStatusEl = document.getElementById("ask-status");
+const askForm = document.getElementById("ask-form");
+const askInput = document.getElementById("ask-input");
+const btnAskSend = document.getElementById("btn-ask-send");
+
+async function openAsk() {
+  const notes = await DB.listNotes(state.currentClass.id);
+  state.currentNotes = notes;
+  if (notes.length === 0) {
+    alert("Scan at least one note in this class first.");
+    return;
+  }
+  // Starting a fresh conversation each time Ask is opened from the class
+  // view keeps follow-ups scoped to one sitting rather than growing forever.
+  state.askMessages = [];
+  askInput.value = "";
+  renderAskMessages();
+  navigateTo("ask");
+  setTimeout(() => askInput.focus(), 0);
+}
+
+function renderAskMessages() {
+  askEmptyEl.hidden = state.askMessages.length > 0;
+  askMessagesEl.innerHTML = "";
+  state.askMessages.forEach((msg) => {
+    const bubble = document.createElement("div");
+    bubble.className = "ask-msg " + (msg.role === "user" ? "ask-msg-user" : "ask-msg-model");
+    if (msg.role === "user") {
+      bubble.textContent = msg.text;
+    } else {
+      bubble.innerHTML = renderMarkdown(msg.text);
+    }
+    askMessagesEl.appendChild(bubble);
+  });
+  askMessagesEl.scrollTop = askMessagesEl.scrollHeight;
+}
+
+function autosizeAskInput() {
+  askInput.style.height = "auto";
+  askInput.style.height = Math.min(askInput.scrollHeight, 160) + "px";
+}
+askInput.addEventListener("input", autosizeAskInput);
+askInput.addEventListener("keydown", (e) => {
+  // Enter sends, Shift+Enter makes a new line — standard chat-input behavior.
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    askForm.requestSubmit();
+  }
+});
+
+askForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const question = askInput.value.trim();
+  if (!question || !state.currentClass) return;
+
+  state.askMessages.push({ role: "user", text: question });
+  askInput.value = "";
+  autosizeAskInput();
+  renderAskMessages();
+
+  btnAskSend.disabled = true;
+  askInput.disabled = true;
+  setStatus(askStatusEl, "Thinking...", "");
+
+  try {
+    const answer = await Gemini.askQuestion({
+      className: state.currentClass.name,
+      notes: state.currentNotes,
+      messages: state.askMessages,
+    });
+    state.askMessages.push({ role: "model", text: answer });
+    askStatusEl.hidden = true;
+    renderAskMessages();
+  } catch (err) {
+    // Drop the unanswered question back into the input so it isn't lost,
+    // and keep it out of the message history sent to Gemini next time.
+    state.askMessages.pop();
+    askInput.value = question;
+    autosizeAskInput();
+    renderAskMessages();
+    setStatus(askStatusEl, err.message, "error");
+  } finally {
+    btnAskSend.disabled = false;
+    askInput.disabled = false;
+    askInput.focus();
   }
 });
 
