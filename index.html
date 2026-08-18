@@ -48,14 +48,14 @@
 
     <!-- ============ ONE CLASS: note list ============ -->
     <main class="view" id="view-class" hidden>
-      <button class="pill-btn accent" id="btn-scan-note">&#128247; Scan a note</button>
+      <button class="fab" id="btn-scan-note" aria-label="Scan Note">+</button>
       <div class="class-toolbar">
-        <button class="pill-btn" id="btn-make-guide">📕 Study guide</button>
-        <button class="pill-btn" id="btn-ask">✦ Ask</button>
+        <button class="pill-btn accent" id="btn-make-guide">📕 Study guide</button>
+        <button class="pill-btn accent" id="btn-ask">✦ Ask</button>
       </div>
       <div class="empty-state" id="notes-empty" hidden>
         <p class="chalk-hand">No notes filed yet</p>
-        <p class="muted">Tap "Scan a note" and photograph a page.</p>
+        <p class="muted">Tap + and photograph a page.</p>
       </div>
       <div class="notes-list" id="notes-list"></div>
     </main>
@@ -83,7 +83,7 @@
       <div class="capture-panel">
         <label class="capture-drop" id="capture-drop">
           <input type="file" id="capture-input" accept="image/*" capture="environment" hidden />
-          <span id="capture-drop-label">&#128248; Tap to photograph a page</span>
+          <span id="capture-drop-label">Tap to photograph a page</span>
           <img id="capture-preview" alt="" hidden />
         </label>
 
@@ -123,7 +123,7 @@
           <button class="seg-btn" data-mode="quiz">Practice quiz</button>
         </div>
         <div id="guide-note-count" class="muted"></div>
-        <button class="pill-btn accent wide" id="btn-generate-guide">Generate</button>
+        <button class="pill-btn wide" id="btn-generate-guide">Generate</button>
       </div>
     </main>
 
@@ -158,7 +158,7 @@
           Nothing is sent to any server but Google's.</p>
         <label class="field">
           <span class="field-label">Gemini API key</span>
-          <input type="password" id="settings-key" placeholder="Paste your key" autocomplete="off" />
+          <input type="text" id="settings-key" placeholder="Paste your key" autocomplete="off" />
         </label>
         <p class="muted small">Get a free key at <span class="mono">aistudio.google.com/apikey</span> — no credit card
           needed.</p>
@@ -175,7 +175,7 @@
         <div id="settings-status" class="status-line" hidden></div>
 
         <hr class="rule" />
-        <button class="pill-btn danger" id="btn-save-settings">Save settings</button>
+        <button class="pill-btn" id="btn-save-settings">Save settings</button>
       </div>
     </main>
 
@@ -191,21 +191,21 @@
       </label>
       <div class="swatches" id="new-class-swatches"></div>
       <div class="modal-actions">
-        <button type="button" class="pill-btn" id="btn-cancel-class">Cancel</button>
-        <button type="submit" class="pill-btn accent">Add class</button>
+        <button type="button" class="pill-btn accent" id="btn-cancel-class">Cancel</button>
+        <button type="submit" class="pill-btn">Add class</button>
       </div>
     </form>
   </dialog>
 
-  <div id="transcribe-overlay" class="transcribe-overlay" hidden aria-hidden="true">
-    <div class="transcribe-card">
+  <div id="loading-overlay" class="loading-overlay" aria-hidden="true" hidden>
+    <div class="loading-card">
       <div class="scanner-box">
         <div class="scan-line"></div>
         <div class="page-icon">📄</div>
       </div>
-      <div class="transcribe-spinner"></div>
-      <h3 class="chalk-hand transcribe-title">Transcribing Notes</h3>
-      <p class="transcribe-status" id="transcribe-status-text">Analyzing handwriting with Gemini AI...</p>
+      <div class="loading-spinner" id="loading-overlay-spinner"></div>
+      <h3 class="chalk-hand" id="loading-title">Transcribing Notes</h3>
+      <p class="loading-status" id="loading-status-text">Analyzing handwriting with Gemini AI...</p>
     </div>
   </div>
 

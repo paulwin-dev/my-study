@@ -2,8 +2,9 @@
 
 const SWATCHES = ["#E3B23C", "#C97A6D", "#6FA98C", "#7FA8C9", "#B58FD1", "#D9915A"];
 
-const transcribeOverlay = document.getElementById("transcribe-overlay");
-const transcribeStatusText = document.getElementById("transcribe-status-text");
+const transcribeOverlay = document.getElementById("loading-overlay");
+const transcribeTitle = document.getElementById("loading-title")
+const transcribeStatusText = document.getElementById("loading-status-text");
 
 let statusInterval;
 
@@ -51,15 +52,22 @@ const backTargets = {
   settings: "classes",
 };
 
-function showTranscribeOverlay() {
-  const messages = [
+function showLoadingOverlay(header, message, transcribe) {
+  const messages = transcribe ? [
     "Analyzing handwriting with Gemini AI...",
     "Cleaning up scanned layout...",
     "Extracting mathematical notation & key points...",
     "Formatting transcription..."
-  ];
+  ] : [message];
   let idx = 0;
   transcribeStatusText.textContent = messages[0];
+
+  if (transcribe) {
+    transcribeOverlay.classList.add("transcribe")
+  } else {
+    transcribeOverlay.classList.remove("transcribe")
+  }
+  transcribeTitle.textContent = header
   
   // Cycle status message every 2.5 seconds
   statusInterval = setInterval(() => {
@@ -71,10 +79,11 @@ function showTranscribeOverlay() {
   transcribeOverlay.setAttribute("aria-hidden", "false");
 }
 
-function hideTranscribeOverlay() {
+function hideLoadingOverlay() {
   clearInterval(statusInterval);
   transcribeOverlay.hidden = true;
   transcribeOverlay.setAttribute("aria-hidden", "true");
+  transcribeOverlay.classList.remove("transcribe")
 }
 
 function showView(name) {
@@ -100,7 +109,7 @@ document.getElementById("btn-back").addEventListener("click", () => {
 
 document.getElementById("btn-settings").addEventListener("click", () => {
   document.getElementById("settings-key").value = localStorage.getItem("ss_api_key") || "";
-  document.getElementById("settings-model").value = localStorage.getItem("ss_model") || "gemini-2.5-flash";
+  document.getElementById("settings-model").value = localStorage.getItem("ss_model") || "gemini-3.6-flash";
   showView("settings");
 });
 
@@ -110,6 +119,7 @@ function navigateTo(name) {
   showView(name);
 }
 
+// ---------------- Classes ----------------
 // ---------------- Classes ----------------
 async function renderClassList() {
   state.classes = await DB.listClasses();
@@ -127,9 +137,117 @@ async function renderClassList() {
       <div class="class-card-name">${escapeText(cls.name)}</div>
       <div class="class-card-meta">${notes.length} note${notes.length === 1 ? "" : "s"}</div>
     `;
-    btn.addEventListener("click", () => openClass(cls));
+
+    // Long press and click state management
+    let pressTimer = null;
+    let isLongPress = false;
+
+    const startPress = (e) => {
+      // Ignore right-clicks or non-primary touches
+      if (e.type === "mousedown" && e.button !== 0) return;
+      
+      isLongPress = false;
+      pressTimer = setTimeout(() => {
+        isLongPress = true;
+        // Suppress default context menus on mobile devices
+        if (e.cancelable) e.preventDefault(); 
+        showClassContextMenu(e, cls);
+      }, 500); // 500ms threshold for long press
+    };
+
+    const cancelPress = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    };
+
+    // Event listeners for press detection
+    btn.addEventListener("touchstart", startPress, { passive: false });
+    btn.addEventListener("touchend", cancelPress);
+    btn.addEventListener("touchmove", cancelPress);
+    
+    btn.addEventListener("mousedown", startPress);
+    btn.addEventListener("mouseup", cancelPress);
+    btn.addEventListener("mouseleave", cancelPress);
+
+    // Primary click handler
+    btn.addEventListener("click", (e) => {
+      if (isLongPress) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        isLongPress = false;
+        return;
+      }
+      openClass(cls);
+    });
+
     grid.appendChild(btn);
   }
+}
+
+// Function to handle the custom long-press context menu
+function showClassContextMenu(event, cls) {
+  // Remove any existing active context menus
+  const existingMenu = document.getElementById("class-context-menu");
+  if (existingMenu) existingMenu.remove();
+
+  // Create backdrop overlay
+  const backdrop = document.createElement("div");
+  backdrop.id = "class-context-menu";
+  backdrop.style.position = "fixed";
+  backdrop.style.top = "0";
+  backdrop.style.left = "0";
+  backdrop.style.width = "100vw";
+  backdrop.style.height = "100vh";
+  backdrop.style.zIndex = "1000";
+  backdrop.style.backgroundColor = "rgba(0, 0, 0, 0.3)";
+  backdrop.style.display = "flex";
+  backdrop.style.alignItems = "center";
+  backdrop.style.justifyContent = "center";
+
+  // Create popup card
+  const menuCard = document.createElement("div");
+  menuCard.className = "card";
+  menuCard.style.minWidth = "240px";
+  menuCard.style.padding = "16px";
+  menuCard.style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
+  menuCard.style.animation = "fadeIn 0.15s ease-out";
+
+  menuCard.innerHTML = `
+    <div style="font-weight: bold; margin-bottom: 12px; word-break: break-word;">${escapeText(cls.name)}</div>
+    <button id="btn-ctx-delete" class="pill-btn" style="width: 100%; text-align: left;">
+      Delete Class
+    </button>
+  `;
+
+  backdrop.appendChild(menuCard);
+  document.body.appendChild(backdrop);
+
+  // Close popup when clicking outside the menu card
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) {
+      backdrop.remove();
+    }
+  });
+
+  // Handle class deletion
+  document.getElementById("btn-ctx-delete").addEventListener("click", async () => {
+    backdrop.remove();
+    if (confirm(`Are you sure you want to delete "${cls.name}" and all of its notes?`)) {
+      if (DB.deleteClass) {
+        await DB.deleteClass(cls.id);
+      } else {
+        // Fallback if DB module uses a custom delete signature
+        const notes = await DB.listNotes(cls.id);
+        for (const note of notes) {
+          await DB.deleteNote(note.id);
+        }
+        if (DB.deleteClassById) await DB.deleteClassById(cls.id);
+      }
+      renderClassList();
+    }
+  });
 }
 
 function escapeText(s) {
@@ -292,7 +410,7 @@ function resetCaptureView() {
   capturePreview.hidden = true;
   capturePreview.src = "";
   captureLabel.hidden = false;
-  captureLabel.innerHTML = '&#128248; Tap to photograph page<br/><span class="muted small">Take photos one by one or select multiple</span>';
+  captureLabel.innerHTML = 'Tap to photograph page<br/><span class="muted small">Take photos one by one or select multiple</span>';
   captureDate.value = new Date().toISOString().slice(0, 10);
   captureStatus.hidden = true;
   captureTextField.hidden = true;
@@ -326,7 +444,7 @@ captureInput.addEventListener("change", async () => {
     
     // Update label to indicate photo count and allow adding more
     captureLabel.hidden = false;
-    captureLabel.innerHTML = `&#128248; <strong>${state.captureBlobs.length} page(s) captured</strong><br/><span class="muted small">Tap here to add another page</span>`;
+    captureLabel.innerHTML = `<strong>${state.captureBlobs.length} page(s) captured</strong><br/><span class="muted small">Tap here to add another page</span>`;
     
     captureStatus.hidden = true;
     btnRunOcr.disabled = false;
@@ -426,20 +544,18 @@ btnRunOcr.addEventListener("click", async () => {
 
   btnRunOcr.disabled = true;
   btnRunOcr.textContent = "Transcribing...";
-  setStatus(captureStatus, "Sending notes to Gemini...", "");
   
-  showTranscribeOverlay();
+  showLoadingOverlay("Transcribing Notes", null, true);
 
   try {
     const text = await Gemini.ocrImage(state.captureCombinedBlob);
     captureText.value = text;
     captureTextField.hidden = false;
     btnSaveNote.hidden = false;
-    setStatus(captureStatus, "Done — review the text below, then save.", "ok");
   } catch (err) {
     setStatus(captureStatus, err.message, "error");
   } finally {
-    hideTranscribeOverlay();
+    hideLoadingOverlay();
     btnRunOcr.disabled = false;
     btnRunOcr.textContent = "Re-transcribe";
   }
@@ -644,7 +760,7 @@ askForm.addEventListener("submit", async (e) => {
 document.getElementById("btn-test-key").addEventListener("click", async () => {
   const status = document.getElementById("settings-status");
   const key = document.getElementById("settings-key").value.trim();
-  const model = document.getElementById("settings-model").value.trim() || "gemini-2.5-flash";
+  const model = document.getElementById("settings-model").value.trim() || "gemini-3.6-flash";
   if (!key) {
     setStatus(status, "Paste an API key first.", "error");
     return;
@@ -662,7 +778,7 @@ document.getElementById("btn-test-key").addEventListener("click", async () => {
 
 document.getElementById("btn-save-settings").addEventListener("click", () => {
   const key = document.getElementById("settings-key").value.trim();
-  const model = document.getElementById("settings-model").value.trim() || "gemini-2.5-flash";
+  const model = document.getElementById("settings-model").value.trim() || "gemini-3.6-flash";
   localStorage.setItem("ss_api_key", key);
   localStorage.setItem("ss_model", model);
   navigateTo("classes");
