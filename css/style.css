@@ -128,10 +128,10 @@ label:has(input:focus-visible) {
   align-items: center;
   gap: 8px;
   padding:
-    max(8px, env(safe-area-inset-top))
-    14px
-    8px;
-  background: #1E2B24/*rgba(8, 8, 8, 0.94)*/;
+    max(8px, env(safe-area-inset-top)) 14px 8px;
+  background: #1E2B24
+    /*rgba(8, 8, 8, 0.94)*/
+  ;
   border-bottom: 1px solid rgba(68, 68, 68, 0.78);
   backdrop-filter: blur(18px) saturate(120%);
   -webkit-backdrop-filter: blur(18px) saturate(120%);
@@ -180,11 +180,19 @@ label:has(input:focus-visible) {
 }
 
 @keyframes view-in {
-  from { opacity: .7; transform: translateY(3px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: .7;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -409,7 +417,8 @@ label:has(input:focus-visible) {
   object-fit: cover;
   border: 1px solid var(--accent);
   border-radius: 10px;
-  background: var(--accent);;
+  background: var(--accent);
+  ;
 }
 
 .note-body {
@@ -872,9 +881,7 @@ dialog h2 {
   align-items: flex-end;
   justify-content: center;
   padding:
-    16px
-    16px
-    max(18px, env(safe-area-inset-bottom));
+    16px 16px max(18px, env(safe-area-inset-bottom));
   background: rgba(31, 32, 28, .28);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
@@ -900,8 +907,15 @@ dialog h2 {
 }
 
 @keyframes sheet-in {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .scanner-box {
@@ -944,8 +958,13 @@ dialog h2 {
 }
 
 @keyframes scan {
-  from { transform: translateY(0); }
-  to { transform: translateY(43px); }
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(43px);
+  }
 }
 
 .loading-spinner {
@@ -961,7 +980,9 @@ dialog h2 {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 #loading-title {
@@ -989,9 +1010,11 @@ dialog h2 {
 
 /* Touch feedback for class cards */
 .class-card {
-  user-select: none; /* Prevents text selection highlight during long-press */
+  user-select: none;
+  /* Prevents text selection highlight during long-press */
   -webkit-user-select: none;
-  -webkit-touch-callout: none; /* Prevents default iOS callout popup */
+  -webkit-touch-callout: none;
+  /* Prevents default iOS callout popup */
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   position: relative;
   overflow: hidden;
@@ -1008,9 +1031,11 @@ dialog h2 {
 
 #class-context-menu {
   animation: backdropFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  backdrop-filter: blur(4px); /* Modern soft-blur background */
+  backdrop-filter: blur(4px);
+  /* Modern soft-blur background */
   -webkit-backdrop-filter: blur(4px);
-  background-color: rgba(15, 23, 42, 0.45) !important; /* Elegant dark dim */
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  /* Elegant dark dim */
 }
 
 /* Modal Popup Card */
@@ -1019,7 +1044,7 @@ dialog h2 {
   border-radius: 16px;
   border: 1px solid var(--accent);
   padding: 20px !important;
-  box-shadow: 
+  box-shadow:
     0 12px 32px -4px rgba(0, 0, 0, 0.18),
     0 4px 12px -2px rgba(0, 0, 0, 0.08);
   transform: scale(0.95);
@@ -1029,7 +1054,7 @@ dialog h2 {
 }
 
 /* Menu Title */
-#class-context-menu .card > div:first-child {
+#class-context-menu .card>div:first-child {
   color: var(--ink);
   font-size: 1.05rem;
   font-weight: 600;
@@ -1040,8 +1065,13 @@ dialog h2 {
 
 /* Dynamic Entrance Keyframes */
 @keyframes backdropFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes modalPopIn {
@@ -1049,9 +1079,83 @@ dialog h2 {
     opacity: 0;
     transform: scale(0.92) translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+}
+
+.custom-alert-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  animation: alertFadeIn 0.2s ease-out forwards;
+}
+
+.custom-alert-card {
+  background: #ffffff;
+  width: 90%;
+  max-width: 360px;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  transform: scale(0.95);
+  animation: alertScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  text-align: center;
+  font-family: inherit;
+}
+
+.custom-alert-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.custom-alert-message {
+  font-size: 0.938rem;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  word-break: break-word;
+}
+
+.custom-alert-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 0.938rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.custom-alert-btn:active {
+  background: #1d4ed8;
+}
+
+@keyframes alertFadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes alertScaleUp {
+  to {
+    transform: scale(1);
   }
 }
 

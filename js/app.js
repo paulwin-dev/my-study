@@ -448,6 +448,10 @@ captureInput.addEventListener("change", async () => {
     
     captureStatus.hidden = true;
     btnRunOcr.disabled = false;
+
+    // Show the option to save directly without transcription
+    captureTextField.hidden = false;
+    btnSaveNote.hidden = false;
   } catch (err) {
     setStatus(captureStatus, "Failed to process images: " + err.message, "error");
   } finally {
@@ -563,12 +567,16 @@ btnRunOcr.addEventListener("click", async () => {
 
 btnSaveNote.addEventListener("click", async () => {
   if (!state.captureCombinedBlob || !state.currentClass) return;
+  
+  const transcriptContent = captureText.value.trim() || "*No transcript provided.*";
+
   await DB.addNote({
     classId: state.currentClass.id,
     date: captureDate.value || new Date().toISOString().slice(0, 10),
     imageBlob: state.captureCombinedBlob,
-    ocrText: captureText.value,
+    ocrText: transcriptContent,
   });
+  
   navigateTo("class");
 });
 
@@ -787,6 +795,37 @@ document.getElementById("btn-save-settings").addEventListener("click", () => {
   localStorage.setItem("ss_model", model);
   navigateTo("classes");
 });
+
+function customAlert(message, title = "Notice") {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement("div");
+    backdrop.className = "custom-alert-backdrop";
+
+    const card = document.createElement("div");
+    card.className = "custom-alert-card";
+
+    card.innerHTML = `
+      <div class="custom-alert-title">${escapeText(title)}</div>
+      <div class="custom-alert-message">${escapeText(message)}</div>
+      <button class="custom-alert-btn">OK</button>
+    `;
+
+    backdrop.appendChild(card);
+    document.body.appendChild(backdrop);
+
+    const closeAlert = () => {
+      backdrop.remove();
+      resolve();
+    };
+
+    card.querySelector(".custom-alert-btn").addEventListener("click", closeAlert);
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop) closeAlert();
+    });
+  });
+}
+
+window.alert = (msg) => customAlert(msg);
 
 // ---------------- Boot ----------------
 renderClassList();
