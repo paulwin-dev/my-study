@@ -624,6 +624,9 @@ document.getElementById("btn-generate-guide").addEventListener("click", async ()
   const btn = document.getElementById("btn-generate-guide");
   btn.disabled = true;
   btn.textContent = "Generating...";
+
+  showLoadingOverlay("Creating "+ (guideMode ==="quiz" ? "Practice quiz" : "Study guide"), "Reading notes...")
+
   try {
     const from = document.getElementById("guide-from").value;
     const to = document.getElementById("guide-to").value;
@@ -643,6 +646,7 @@ document.getElementById("btn-generate-guide").addEventListener("click", async ()
   } finally {
     btn.disabled = false;
     btn.textContent = "Generate";
+    hideLoadingOverlay()
   }
 });
 
